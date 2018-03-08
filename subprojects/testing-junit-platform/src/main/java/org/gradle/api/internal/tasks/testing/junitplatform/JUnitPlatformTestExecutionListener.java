@@ -17,21 +17,28 @@
 package org.gradle.api.internal.tasks.testing.junitplatform;
 
 import org.gradle.api.internal.tasks.testing.DefaultTestDescriptor;
+import org.gradle.api.internal.tasks.testing.DefaultTestOutputEvent;
 import org.gradle.api.internal.tasks.testing.TestDescriptorInternal;
 import org.gradle.api.internal.tasks.testing.TestResultProcessor;
 import org.gradle.api.internal.tasks.testing.junit.GenericJUnitTestEventAdapter;
 import org.gradle.api.internal.tasks.testing.junit.TestClassExecutionListener;
+import org.gradle.api.tasks.testing.TestOutputEvent;
 import org.gradle.internal.id.IdGenerator;
 import org.gradle.internal.time.Clock;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.UniqueId;
+import org.junit.platform.engine.reporting.ReportEntry;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.gradle.api.internal.tasks.testing.junitplatform.VintageTestNameAdapter.*;
+import static org.gradle.api.tasks.testing.TestOutputEvent.Destination.StdOut;
 import static org.junit.platform.engine.TestExecutionResult.Status.SUCCESSFUL;
 
 public class JUnitPlatformTestExecutionListener implements TestExecutionListener {
@@ -39,13 +46,20 @@ public class JUnitPlatformTestExecutionListener implements TestExecutionListener
     private final IdGenerator<?> idGenerator;
     private final TestClassExecutionListener executionListener;
     private final CurrentRunningTestClass currentRunningTestClass;
+    private final TestResultProcessor resultProcessor;
     private TestPlan currentTestPlan;
 
     public JUnitPlatformTestExecutionListener(TestResultProcessor resultProcessor, Clock clock, IdGenerator<?> idGenerator, TestClassExecutionListener executionListener) {
+        this.resultProcessor = resultProcessor;
         this.adapter = new GenericJUnitTestEventAdapter<>(resultProcessor, clock);
         this.idGenerator = idGenerator;
         this.executionListener = executionListener;
         this.currentRunningTestClass = new CurrentRunningTestClass();
+    }
+
+    @Override
+    public void reportingEntryPublished(TestIdentifier testIdentifier, ReportEntry entry) {
+        currentRunningTestClass.report(testIdentifier, entry);
     }
 
     @Override
@@ -75,7 +89,9 @@ public class JUnitPlatformTestExecutionListener implements TestExecutionListener
             reportTestClassStarted(testIdentifier);
         }
         if (isLeafTest(testIdentifier)) {
-            adapter.testStarted(testIdentifier.getUniqueId(), getDescriptor(testIdentifier));
+            TestDescriptorInternal descriptor = getDescriptor(testIdentifier);
+            currentRunningTestClass.testCaseStart(testIdentifier.getUniqueId(), descriptor);
+            adapter.testStarted(testIdentifier.getUniqueId(), descriptor);
         }
     }
 
@@ -192,6 +208,7 @@ public class JUnitPlatformTestExecutionListener implements TestExecutionListener
     private class CurrentRunningTestClass {
         private String name;
         private int count;
+        private Map<String, TestDescriptorInternal> testCases = new HashMap<>();
 
         private void start(String className) {
             if (name == null) {
@@ -203,13 +220,28 @@ public class JUnitPlatformTestExecutionListener implements TestExecutionListener
             }
         }
 
+        private void testCaseStart(String uniqueId, TestDescriptorInternal descriptor) {
+            if (name != null) {
+                testCases.put(uniqueId, descriptor);
+            }
+        }
+
         private void end(String className, Throwable failure) {
             if (className.equals(name)) {
                 count--;
                 if (count == 0) {
                     executionListener.testClassFinished(failure);
                     name = null;
+                    testCases.clear();
                 }
+            }
+        }
+
+        public void report(TestIdentifier testIdentifier, ReportEntry entry) {
+            if (name != null) {
+                TestDescriptorInternal testCaseDescriptor = testCases.get(testIdentifier.getUniqueId());
+                TestOutputEvent event = new DefaultTestOutputEvent(StdOut, entry.toString() + "\n");
+                resultProcessor.output(testCaseDescriptor.getId(), event);
             }
         }
     }
