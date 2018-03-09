@@ -179,7 +179,6 @@ val groovyBuildScriptProjects = listOf(
     "test-kit",
     "soak",
     "smoke-test",
-    "composite-builds",
     "workers",
     "persistent-cache",
     "core-api",
