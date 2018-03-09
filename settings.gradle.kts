@@ -138,7 +138,6 @@ val groovyBuildScriptProjects = listOf(
     "maven",
     "code-quality",
     "tooling-api",
-    "tooling-api-builders",
     "docs",
     "integ-test",
     "signing",
