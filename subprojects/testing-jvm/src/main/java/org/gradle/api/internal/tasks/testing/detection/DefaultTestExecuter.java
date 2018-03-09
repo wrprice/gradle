@@ -28,6 +28,7 @@ import org.gradle.api.internal.tasks.testing.TestResultProcessor;
 import org.gradle.api.internal.tasks.testing.WorkerTestClassProcessorFactory;
 import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter;
 import org.gradle.api.internal.tasks.testing.processors.MaxNParallelTestClassProcessor;
+import org.gradle.api.internal.tasks.testing.processors.PatternMatchTestClassProcessor;
 import org.gradle.api.internal.tasks.testing.processors.RestartEveryNTestClassProcessor;
 import org.gradle.api.internal.tasks.testing.processors.TestMainAction;
 import org.gradle.api.internal.tasks.testing.worker.ForkingTestClassProcessor;
@@ -92,7 +93,7 @@ public class DefaultTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
                 return new RestartEveryNTestClassProcessor(forkingProcessorFactory, testExecutionSpec.getForkEvery());
             }
         };
-        processor = new MaxNParallelTestClassProcessor(getMaxParallelForks(testExecutionSpec), reforkingProcessorFactory, actorFactory);
+        processor = new PatternMatchTestClassProcessor(testFilter, new MaxNParallelTestClassProcessor(getMaxParallelForks(testExecutionSpec), reforkingProcessorFactory, actorFactory));
 
         final FileTree testClassFiles = testExecutionSpec.getCandidateClassFiles();
 
@@ -101,9 +102,9 @@ public class DefaultTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
             TestFrameworkDetector testFrameworkDetector = testFramework.getDetector();
             testFrameworkDetector.setTestClasses(testExecutionSpec.getTestClassesDirs().getFiles());
             testFrameworkDetector.setTestClasspath(classpath);
-            detector = new DefaultTestClassScanner(testClassFiles, testFrameworkDetector, processor, testFilter);
+            detector = new DefaultTestClassScanner(testClassFiles, testFrameworkDetector, processor);
         } else {
-            detector = new DefaultTestClassScanner(testClassFiles, null, processor, testFilter);
+            detector = new DefaultTestClassScanner(testClassFiles, null, processor);
         }
 
         final Object testTaskOperationId = buildOperationExecutor.getCurrentOperation().getParentId();
