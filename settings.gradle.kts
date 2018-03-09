@@ -159,7 +159,6 @@ val groovyBuildScriptProjects = listOf(
     "ivy",
     "jacoco",
     "build-init",
-    "build-option",
     "platform-base",
     "platform-native",
     "platform-jvm",
