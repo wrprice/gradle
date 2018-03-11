@@ -16,6 +16,7 @@
 
 package org.gradle.workers.internal
 
+import org.gradle.workers.IsolationMode
 import spock.lang.Timeout
 import spock.lang.Unroll
 
@@ -50,7 +51,7 @@ class WorkerExecutorLoggingIntegrationTest extends AbstractWorkerExecutorIntegra
     @Unroll
     def "stdout, stderr and logging output of worker is redirected in #isolationMode"() {
         buildFile << """
-            ${runnableWithLogging}
+            ${getRunnableWithLogging(isolationMode)}
             task runInWorker(type: WorkerTask) {
                 isolationMode = $isolationMode
             }
@@ -82,7 +83,7 @@ class WorkerExecutorLoggingIntegrationTest extends AbstractWorkerExecutorIntegra
         isolationMode << ISOLATION_MODES
     }
 
-    String getRunnableWithLogging() {
+    String getRunnableWithLogging(String isolationMode) {
         return """
             import java.io.File;
             import java.util.List;
@@ -109,8 +110,19 @@ class WorkerExecutorLoggingIntegrationTest extends AbstractWorkerExecutorIntegra
                     java.util.logging.Logger.getLogger("worker").severe("jul error");
                     System.out.println("stdout message");
                     System.err.println("stderr message");
+                    
+                    // TODO: this is a workaround to get any isolated logging chains flushed
+                    ${flushIfInIsolatedClassloader(isolationMode)}
                 }
             }
         """.stripIndent()
+    }
+
+    static String flushIfInIsolatedClassloader(String isolationMode) {
+        if (isolationMode != "IsolationMode.${IsolationMode.NONE.toString()}") {
+            return "LoggerFactory.getILoggerFactory().getOutputEventListener().flush()"
+        } else {
+            return ""
+        }
     }
 }
