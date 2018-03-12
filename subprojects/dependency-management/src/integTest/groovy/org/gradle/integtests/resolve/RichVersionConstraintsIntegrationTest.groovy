@@ -217,15 +217,21 @@ class RichVersionConstraintsIntegrationTest extends AbstractModuleDependencyReso
         """
 
         when:
+        def resolvesFooVersions = directDependencyVersion != '1.2'
+        def resolvesFoo13 = directDependencyVersion == '[1.0, 1.3]'
         repositoryInteractions {
             'org:foo' {
-                expectVersionListing()
+                if (resolvesFooVersions) {
+                    expectVersionListing()
+                }
                 '1.2' {
                     expectGetMetadata()
                     expectGetArtifact()
                 }
-                '1.3' {
-                    expectGetMetadata()
+                if (resolvesFoo13) {
+                    '1.3' {
+                        expectGetMetadata()
+                    }
                 }
             }
             'org:bar:1.0' {
@@ -248,8 +254,8 @@ class RichVersionConstraintsIntegrationTest extends AbstractModuleDependencyReso
         }
 
         where:
-        directDependencyVersion << ['[1.0,1.3]', '1.2', '[1.0, 1.2]', '[1.0, 1.3]']
-        transitiveDependencyVersion << ['1.2', '[1.0,1.3]', '[1.0, 1.3]', '[1.0, 1.2]']
+        directDependencyVersion << ['[1.0, 1.3]', '1.2', '[1.0, 1.2]', '[1.0, 1.3]']
+        transitiveDependencyVersion << ['1.2', '[1.0, 1.3]', '[1.0, 1.3]', '[1.0, 1.2]']
     }
 
     def "should not downgrade dependency version when a transitive dependency has strict version"() {
@@ -453,9 +459,6 @@ class RichVersionConstraintsIntegrationTest extends AbstractModuleDependencyReso
                 '1.2' {
                     expectGetMetadata()
                     expectGetArtifact()
-                }
-                '1.3' {
-                    expectGetMetadata()
                 }
             }
         }

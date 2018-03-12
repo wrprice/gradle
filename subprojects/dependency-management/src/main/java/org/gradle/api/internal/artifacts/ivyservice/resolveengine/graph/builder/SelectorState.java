@@ -19,8 +19,12 @@ package org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.builder
 import com.google.common.collect.Lists;
 import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.component.ComponentSelector;
+import org.gradle.api.artifacts.component.ModuleComponentSelector;
 import org.gradle.api.artifacts.result.ComponentSelectionReason;
 import org.gradle.api.internal.artifacts.ResolvedVersionConstraint;
+import org.gradle.api.internal.artifacts.dependencies.DefaultResolvedVersionConstraint;
+import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.DefaultVersionComparator;
+import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.strategy.DefaultVersionSelectorScheme;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphSelector;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionDescriptorInternal;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionReasonInternal;
@@ -39,8 +43,9 @@ import static org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.
  * Resolution state for a given module version selector.
  */
 class SelectorState implements DependencyGraphSelector {
+    private static final DefaultVersionSelectorScheme VERSION_SELECTOR_SCHEME = new DefaultVersionSelectorScheme(new DefaultVersionComparator());
     private final Long id;
-    private final DependencyState dependencyState;
+    final DependencyState dependencyState;
     private final DependencyMetadata dependencyMetadata;
     private final DependencyToComponentIdResolver resolver;
     private final ResolveState resolveState;
@@ -48,7 +53,6 @@ class SelectorState implements DependencyGraphSelector {
     private ModuleResolveState targetModule;
     private ComponentState selected;
     private BuildableComponentIdResolveResult idResolveResult;
-    private ResolvedVersionConstraint versionConstraint;
 
     SelectorState(Long id, DependencyState dependencyState, DependencyToComponentIdResolver resolver, ResolveState resolveState, ModuleIdentifier targetModuleId) {
         this.id = id;
@@ -128,7 +132,6 @@ class SelectorState implements DependencyGraphSelector {
         if (dependencyState.getRuleDescriptor() != null) {
             selected.addCause(dependencyState.getRuleDescriptor());
         }
-        versionConstraint = idResolveResult.getResolvedVersionConstraint();
 
         // We should never select a component for a different module, but the JVM software model dependency resolution is doing this.
         // TODO:DAZ Ditch the JVM Software Model plugins and add this assertion
@@ -180,6 +183,10 @@ class SelectorState implements DependencyGraphSelector {
     }
 
     public ResolvedVersionConstraint getVersionConstraint() {
-        return versionConstraint;
+        if (dependencyMetadata.getSelector() instanceof ModuleComponentSelector) {
+            ModuleComponentSelector mcs = (ModuleComponentSelector) dependencyMetadata.getSelector();
+            return new DefaultResolvedVersionConstraint(mcs.getVersionConstraint(), VERSION_SELECTOR_SCHEME);
+        }
+        return null;
     }
 }

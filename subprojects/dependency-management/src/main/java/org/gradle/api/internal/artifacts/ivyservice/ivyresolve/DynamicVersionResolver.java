@@ -93,6 +93,8 @@ public class DynamicVersionResolver {
             }
 
             result.resolved(metaDataFactory.transform(latestResolved));
+
+            // TODO:DAZ Not sure why we are passing the reason in, and then setting it on the result
             String reason = dependency.getReason();
             if (reason != null) {
                 result.setSelectionDescription(result.getSelectionDescription().withReason(reason));

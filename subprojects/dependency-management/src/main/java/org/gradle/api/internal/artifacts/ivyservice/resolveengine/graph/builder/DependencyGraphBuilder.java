@@ -34,6 +34,7 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.Dependen
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.DependencyGraphVisitor;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.ConflictHandler;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.conflicts.PotentialConflict;
+import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionDescriptorInternal;
 import org.gradle.api.internal.attributes.AttributesSchemaInternal;
 import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
 import org.gradle.api.specs.Spec;
@@ -56,6 +57,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+
+import static org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.VersionSelectionReasons.CONSTRAINT;
+import static org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.VersionSelectionReasons.REQUESTED;
 
 public class DependencyGraphBuilder {
     private static final Logger LOGGER = LoggerFactory.getLogger(DependencyGraphBuilder.class);
@@ -160,20 +164,46 @@ public class DependencyGraphBuilder {
 
     private void performSelection(final ResolveState resolveState, EdgeState dependency) {
         // Now have the module _before_ attempting to resolve...
-        ModuleResolveState module = dependency.getSelector().getTargetModule();
+        SelectorState selector = dependency.getSelector();
+        ModuleResolveState module = selector.getTargetModule();
+        final ComponentState currentlySelected = module.getSelected();
+
+        if (currentlySelected != null) {
+            List<SelectorState> combinedSelectors = new ArrayList<SelectorState>();
+            if (currentlySelected.allSelectors != null) {
+                combinedSelectors.addAll(currentlySelected.allSelectors);
+            }
+            combinedSelectors.add(selector);
+
+            if (allSelectorsAgreeWith(combinedSelectors, currentlySelected.getVersion(), ALL_SELECTORS)) {
+                // This selector agrees with the already selected version, don't bother and pick it
+                // TODO:DAZ This logic is a bit like selecting
+
+                selector.overrideSelection(currentlySelected);
+
+                ComponentSelectionDescriptorInternal reason = dependency.getDependencyMetadata().isPending() ? CONSTRAINT : REQUESTED;
+                String reasonString = dependency.getDependencyMetadata().getReason();
+                if (reasonString != null) {
+                    reason = reason.withReason(reasonString);
+                }
+                currentlySelected.addCause(reason);
+
+                DependencyState dependencyState = dependency.getSelector().dependencyState;
+                if (dependencyState.getRuleDescriptor() != null) {
+                    currentlySelected.addCause(dependencyState.getRuleDescriptor());
+                }
+
+                dependency.setTargetComponent(currentlySelected);
+
+                return;
+            }
+        }
 
         final ComponentState candidate = dependency.resolveModuleRevisionId();
-
         // Check for a new conflict
         if (candidate != null && candidate.isSelectable()) {
 
-            final ComponentState currentlySelected = module.getSelected();
             if (currentlySelected != null && currentlySelected != candidate) {
-                if (allSelectorsAgreeWith(candidate.allSelectors, currentlySelected.getVersion(), ALL_SELECTORS)) {
-                    // This selector agrees with the already selected version, don't bother and pick it
-                    return;
-                }
-
                 if (allSelectorsAgreeWith(module.getSelectors(), candidate.getVersion(), new Predicate<SelectorState>() {
                     @Override
                     public boolean apply(@Nullable SelectorState input) {

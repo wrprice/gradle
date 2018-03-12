@@ -64,6 +64,8 @@ public class RepositoryChainDependencyToComponentIdResolver implements Dependenc
                 ModuleComponentIdentifier id = new DefaultModuleComponentIdentifier(module.getGroup(), module.getModule(), version);
                 ModuleVersionIdentifier mvId = moduleIdentifierFactory.moduleWithVersion(module.getGroup(), module.getModule(), version);
                 result.resolved(id, mvId);
+
+                // TODO:DAZ Passing the reason in (with a dependency), then returning it in the result
                 String reason = dependency.getReason();
                 if (reason != null) {
                     result.setSelectionDescription(result.getSelectionDescription().withReason(reason));

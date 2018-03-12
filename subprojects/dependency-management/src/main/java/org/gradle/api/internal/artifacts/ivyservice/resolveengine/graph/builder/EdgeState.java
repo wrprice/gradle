@@ -80,6 +80,10 @@ class EdgeState implements DependencyGraphEdge {
         return targetModuleRevision;
     }
 
+    void setTargetComponent(ComponentState component) {
+        targetModuleRevision = component;
+    }
+
     @Override
     public SelectorState getSelector() {
         return selector;
