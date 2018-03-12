@@ -121,8 +121,7 @@ class ClassTypeWrapper implements TypeWrapper {
         // "The optional class body of an enum constant implicitly defines an anonymous class declaration
         //  that extends the immediately enclosing enum type."
         if (enclosingClass != null && enclosingClass.isEnum()
-            && Modifier.isStatic(clazz.getModifiers())
-            && clazz.getCanonicalName() == null
+            && clazz.getSimpleName().length() == 0
             && clazz.getSuperclass() == enclosingClass) {
 
             return enclosingClass;
