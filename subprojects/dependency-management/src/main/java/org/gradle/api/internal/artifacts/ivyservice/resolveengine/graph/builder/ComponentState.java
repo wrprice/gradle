@@ -34,7 +34,7 @@ import org.gradle.internal.component.model.ComponentResolveMetadata;
 import org.gradle.internal.component.model.DefaultComponentOverrideMetadata;
 import org.gradle.internal.resolve.ModuleVersionResolveException;
 import org.gradle.internal.resolve.resolver.ComponentMetaDataResolver;
-import org.gradle.internal.resolve.result.ComponentIdResolveResult;
+import org.gradle.internal.resolve.result.BuildableComponentIdResolveResult;
 import org.gradle.internal.resolve.result.DefaultBuildableComponentResolveResult;
 
 import java.util.List;
@@ -56,6 +56,7 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
 
     private ComponentSelectionState state = ComponentSelectionState.Selectable;
     private ModuleVersionResolveException failure;
+    // TODO:DAZ This is a smell. A component is _not_ selected by a single selector.
     private SelectorState selectedBy;
     private DependencyGraphBuilder.VisitState visitState = DependencyGraphBuilder.VisitState.NotSeen;
     List<SelectorState> allResolvers;
@@ -125,12 +126,17 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
         }
     }
 
-    public void selectedBy(SelectorState resolver) {
+    public void selectedBy(SelectorState resolver, BuildableComponentIdResolveResult idResolveResult) {
         if (selectedBy == null) {
             selectedBy = resolver;
             allResolvers = Lists.newLinkedList();
         }
         allResolvers.add(resolver);
+        if (!alreadyResolved()) {
+            // TODO:DAZ Not sure when you'd get a non-null failure here
+            failure = idResolveResult.getFailure();
+            metaData = idResolveResult.getMetaData();
+        }
     }
 
     /**
@@ -139,20 +145,7 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
      * @return true if it has been resolved in a cheap way
      */
     public boolean alreadyResolved() {
-        if (metaData != null || failure != null) {
-            return true;
-        }
-
-        ComponentIdResolveResult idResolveResult = selectedBy.getResolveResult();
-        if (idResolveResult.getFailure() != null) {
-            failure = idResolveResult.getFailure();
-            return true;
-        }
-        if (idResolveResult.getMetaData() != null) {
-            metaData = idResolveResult.getMetaData();
-            return true;
-        }
-        return false;
+        return metaData != null || failure != null;
     }
 
     public void resolve() {
@@ -160,10 +153,8 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
             return;
         }
 
-        ComponentIdResolveResult idResolveResult = selectedBy.getResolveResult();
-
         DefaultBuildableComponentResolveResult result = new DefaultBuildableComponentResolveResult();
-        resolver.resolve(idResolveResult.getId(), DefaultComponentOverrideMetadata.forDependency(selectedBy.getDependencyMetadata()), result);
+        resolver.resolve(componentIdentifier, DefaultComponentOverrideMetadata.forDependency(selectedBy.getDependencyMetadata()), result);
         if (result.getFailure() != null) {
             failure = result.getFailure();
             return;

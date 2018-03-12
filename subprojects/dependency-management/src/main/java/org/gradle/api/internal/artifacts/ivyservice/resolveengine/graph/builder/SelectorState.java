@@ -25,12 +25,10 @@ import org.gradle.api.internal.artifacts.ivyservice.resolveengine.graph.Dependen
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionDescriptorInternal;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.ComponentSelectionReasonInternal;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.result.VersionSelectionReasons;
-import org.gradle.internal.component.model.ComponentResolveMetadata;
 import org.gradle.internal.component.model.DependencyMetadata;
 import org.gradle.internal.resolve.ModuleVersionResolveException;
 import org.gradle.internal.resolve.resolver.DependencyToComponentIdResolver;
 import org.gradle.internal.resolve.result.BuildableComponentIdResolveResult;
-import org.gradle.internal.resolve.result.ComponentIdResolveResult;
 import org.gradle.internal.resolve.result.DefaultBuildableComponentIdResolveResult;
 
 import java.util.List;
@@ -125,7 +123,7 @@ class SelectorState implements DependencyGraphSelector {
         }
 
         selected = resolveState.getRevision(idResolveResult.getId(), idResolveResult.getModuleVersionId());
-        selected.selectedBy(this);
+        selected.selectedBy(this, idResolveResult);
         selected.addCause(idResolveResult.getSelectionDescription());
         if (dependencyState.getRuleDescriptor() != null) {
             selected.addCause(dependencyState.getRuleDescriptor());
@@ -175,19 +173,10 @@ class SelectorState implements DependencyGraphSelector {
         // Target module can change, if this is called as the result of a module replacement conflict.
         // TODO:DAZ We are not updating the set of selectors for the updated module (or for the module that the selectors were removed from)
         this.targetModule = selectedComponent.getModule();
-
-        ComponentResolveMetadata metaData = selectedComponent.getMetaData();
-        if (metaData != null) {
-            this.idResolveResult.resolved(metaData);
-        }
     }
 
     public DependencyMetadata getDependencyMetadata() {
         return dependencyMetadata;
-    }
-
-    public ComponentIdResolveResult getResolveResult() {
-        return idResolveResult;
     }
 
     public ResolvedVersionConstraint getVersionConstraint() {
