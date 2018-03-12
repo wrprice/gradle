@@ -18,6 +18,7 @@ package org.gradle.api.internal.artifacts;
 import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.ModuleVersionSelector;
 import org.gradle.api.artifacts.component.ComponentSelector;
+import org.gradle.api.artifacts.component.LibraryComponentSelector;
 import org.gradle.api.artifacts.component.ModuleComponentSelector;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentSelector;
@@ -59,6 +60,10 @@ public class DefaultComponentSelectorConverter implements ComponentSelectorConve
             if (projectComponent != null) {
                 return DefaultModuleVersionSelector.newSelector(projectComponent.getId().getGroup(), projectComponent.getId().getName(), projectComponent.getId().getVersion());
             }
+        }
+        if (selector instanceof LibraryComponentSelector) {
+            LibraryComponentSelector libraryComponentSelector = (LibraryComponentSelector) selector;
+            return DefaultModuleVersionSelector.newSelector(libraryComponentSelector.getProjectPath(), libraryComponentSelector.getLibraryName(), "undefined");
         }
         return UNKNOWN_MODULE_VERSION_SELECTOR;
     }
