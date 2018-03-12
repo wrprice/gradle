@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.gradle.api.Action;
-import org.gradle.api.artifacts.ModuleIdentifier;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.internal.artifacts.ComponentSelectorConverter;
@@ -155,33 +154,47 @@ public class DependencyGraphBuilder {
 
     private void performSelectionSerially(List<EdgeState> dependencies, ResolveState resolveState) {
         for (EdgeState dependency : dependencies) {
-            ComponentState moduleRevision = dependency.resolveModuleRevisionId();
-            if (moduleRevision != null) {
-                performSelection(resolveState, moduleRevision);
-            }
+            performSelection(resolveState, dependency);
         }
     }
 
-    private void performSelection(final ResolveState resolveState, ComponentState moduleRevision) {
-        ModuleIdentifier moduleId = moduleRevision.getId().getModule();
+    private void performSelection(final ResolveState resolveState, EdgeState dependency) {
+        // Now have the module _before_ attempting to resolve...
+        ModuleResolveState module = dependency.getSelector().getTargetModule();
 
-        ModuleResolveState module = resolveState.getModule(moduleId);
+        final ComponentState candidate = dependency.resolveModuleRevisionId();
+
         // Check for a new conflict
-        if (moduleRevision.isSelectable()) {
+        if (candidate != null && candidate.isSelectable()) {
 
-            if (tryCompatibleSelection(resolveState, moduleRevision, moduleId, module)) {
-                return;
+            final ComponentState currentlySelected = module.getSelected();
+            if (currentlySelected != null && currentlySelected != candidate) {
+                if (allSelectorsAgreeWith(candidate.allSelectors, currentlySelected.getVersion(), ALL_SELECTORS)) {
+                    // This selector agrees with the already selected version, don't bother and pick it
+                    return;
+                }
+
+                if (allSelectorsAgreeWith(module.getSelectors(), candidate.getVersion(), new Predicate<SelectorState>() {
+                    @Override
+                    public boolean apply(@Nullable SelectorState input) {
+                        return !candidate.allSelectors.contains(input);
+                    }
+                })) {
+                    resolveState.getDeselectVersionAction().execute(module.getId());
+                    module.softSelect(candidate);
+                    return;
+                }
             }
 
             // A new module revision. Check for conflict
             PotentialConflict c = conflictHandler.registerModule(module);
             if (!c.conflictExists()) {
                 // No conflict. Select it for now
-                LOGGER.debug("Selecting new module version {}", moduleRevision);
-                module.select(moduleRevision);
+                LOGGER.debug("Selecting new module version {}", candidate);
+                module.select(candidate);
             } else {
                 // We have a conflict
-                LOGGER.debug("Found new conflicting module version {}", moduleRevision);
+                LOGGER.debug("Found new conflicting module version {}", candidate);
 
                 // Deselect the currently selected version, and remove all outgoing edges from the version
                 // This will propagate through the graph and prune configurations that are no longer required
@@ -189,42 +202,6 @@ public class DependencyGraphBuilder {
                 c.withParticipatingModules(resolveState.getDeselectVersionAction());
             }
         }
-    }
-
-    private static boolean tryCompatibleSelection(final ResolveState resolveState,
-                                                  final ComponentState candidate,
-                                                  final ModuleIdentifier moduleId,
-                                                  final ModuleResolveState module) {
-        final ComponentState currentlySelected = module.getSelected();
-        String version = candidate.getId().getVersion();
-        List<SelectorState> moduleSelectors = module.getSelectors();
-        if (currentlySelected == null && !resolveState.getModuleReplacementsData().participatesInReplacements(moduleId)) {
-            if (allSelectorsAgreeWith(moduleSelectors, version, ALL_SELECTORS)) {
-                module.select(candidate);
-                return true;
-            }
-        }
-
-        final Collection<SelectorState> selectedBy = candidate.allResolvers;
-        if (currentlySelected != null && currentlySelected != candidate) {
-            if (allSelectorsAgreeWith(candidate.allResolvers, currentlySelected.getVersion(), ALL_SELECTORS)) {
-                // if this selector agrees with the already selected version, don't bother and pick it
-                return true;
-            }
-
-            if (allSelectorsAgreeWith(moduleSelectors, version, new Predicate<SelectorState>() {
-                @Override
-                public boolean apply(@Nullable SelectorState input) {
-                    return !selectedBy.contains(input);
-                }
-            })) {
-                resolveState.getDeselectVersionAction().execute(moduleId);
-                module.softSelect(candidate);
-                return true;
-            }
-        }
-        // we're going to fallback to conflict resolution
-        return false;
     }
 
     /**

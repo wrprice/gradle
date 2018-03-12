@@ -59,7 +59,7 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
     // TODO:DAZ This is a smell. A component is _not_ selected by a single selector.
     private SelectorState selectedBy;
     private DependencyGraphBuilder.VisitState visitState = DependencyGraphBuilder.VisitState.NotSeen;
-    List<SelectorState> allResolvers;
+    List<SelectorState> allSelectors;
 
     ComponentState(Long resultId, ModuleResolveState module, ModuleVersionIdentifier id, ComponentIdentifier componentIdentifier, ComponentMetaDataResolver resolver, VariantNameBuilder variantNameBuilder) {
         this.resultId = resultId;
@@ -147,9 +147,9 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
     public void selectedBy(SelectorState resolver, BuildableComponentIdResolveResult idResolveResult) {
         if (selectedBy == null) {
             selectedBy = resolver;
-            allResolvers = Lists.newLinkedList();
+            allSelectors = Lists.newLinkedList();
         }
-        allResolvers.add(resolver);
+        allSelectors.add(resolver);
         if (!alreadyResolved()) {
             // TODO:DAZ Not sure when you'd get a non-null failure here
             failure = idResolveResult.getFailure();
