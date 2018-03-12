@@ -131,6 +131,7 @@ public class DaemonMain extends EntryPoint {
             daemon.stopOnExpiration(expirationStrategy, parameters.getPeriodicCheckIntervalMs());
         } finally {
             daemon.stop();
+            loggingManager.flush();
             // TODO: Stop all daemon services
             CompositeStoppable.stoppable(daemonServices.get(GradleUserHomeScopeServiceRegistry.class)).stop();
             loggingManager.stop();
@@ -174,6 +175,8 @@ public class DaemonMain extends EntryPoint {
                 //just in case we have a bug related to logging,
                 //printing some exit info directly to file:
                 log.println(DaemonMessages.DAEMON_VM_SHUTTING_DOWN);
+                log.flush();
+                log.close();
             }
         });
 
