@@ -44,6 +44,7 @@ import java.util.Set;
  * Resolution state for a given component
  */
 public class ComponentState implements ComponentResolutionState, DependencyGraphComponent, ComponentStateWithDependents<ComponentState> {
+    private final ComponentIdentifier componentIdentifier;
     private final ModuleVersionIdentifier id;
     private final ComponentMetaDataResolver resolver;
     private final VariantNameBuilder variantNameBuilder;
@@ -59,10 +60,11 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
     private DependencyGraphBuilder.VisitState visitState = DependencyGraphBuilder.VisitState.NotSeen;
     List<SelectorState> allResolvers;
 
-    ComponentState(Long resultId, ModuleResolveState module, ModuleVersionIdentifier id, ComponentMetaDataResolver resolver, VariantNameBuilder variantNameBuilder) {
+    ComponentState(Long resultId, ModuleResolveState module, ModuleVersionIdentifier id, ComponentIdentifier componentIdentifier, ComponentMetaDataResolver resolver, VariantNameBuilder variantNameBuilder) {
         this.resultId = resultId;
         this.module = module;
         this.id = id;
+        this.componentIdentifier = componentIdentifier;
         this.resolver = resolver;
         this.variantNameBuilder = variantNameBuilder;
     }
@@ -212,7 +214,7 @@ public class ComponentState implements ComponentResolutionState, DependencyGraph
 
     @Override
     public ComponentIdentifier getComponentId() {
-        return getMetaData().getComponentId();
+        return componentIdentifier;
     }
 
     @Override
